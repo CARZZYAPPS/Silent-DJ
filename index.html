@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Runner - Pro Edition</title>
+    <style>
+        body { background: #0a0a0a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; touch-action: manipulation; }
+        #ui-layer { text-align: center; z-index: 10; background: rgba(15,15,15,0.95); padding: 30px; border-radius: 15px; border: 1px solid #00d1b2; position: absolute; box-shadow: 0 0 30px rgba(0,209,178,0.3); min-width: 280px; }
+        canvas { background: #050505; border-bottom: 4px solid #00d1b2; width: 100%; max-width: 800px; }
+        
+        .stats { position: absolute; top: 20px; left: 20px; font-size: 18px; font-weight: bold; color: #00d1b2; }
+        #best-label { color: #ffd700; font-size: 14px; }
+        
+        .controls { position: fixed; bottom: 30px; display: none; gap: 40px; z-index: 5; }
+        .action-btn { width: 85px; height: 85px; background: rgba(0, 209, 178, 0.2); border: 2px solid #00d1b2; border-radius: 50%; color: white; font-weight: bold; font-size: 14px; outline: none; -webkit-tap-highlight-color: transparent; }
+        .action-btn:active { background: rgba(0, 209, 178, 0.6); }
+
+        button.menu-btn { padding: 12px 30px; font-size: 16px; cursor: pointer; background: #00d1b2; border: none; border-radius: 30px; color: white; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="stats">
+        SCORE: <span id="score">0</span><br>
+        <div id="best-label">BEST: <span id="best-score">0</span></div>
+    </div>
+
+    <div id="ui-layer">
+        <h1 id="title">NEON RUNNER PRO</h1>
+        <p>JUMP spikes | DUCK drones (Must duck!)</p>
+        <button id="startBtn" class="menu-btn">START GAME</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="controls" id="controls">
+        <button class="action-btn" id="duckBtn">DUCK</button>
+        <button class="action-btn" id="jumpBtn">JUMP</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const controls = document.getElementById('controls');
+        
+        let gameActive = false, score = 0, bestScore = localStorage.getItem('rr_best_pro') || 0;
+        document.getElementById('best-score').innerText = bestScore;
+
+        let player = { x: 60, y: 0, w: 35, h: 45, baseH: 45, dy: 0, jumpPower: -14, grounded: true, isDucking: false };
+        let obstacles = [], particles = [], gravity = 0.7, groundY = 0;
+        let gameSpeed = 6, spawnTimer = 0;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = 350;
+            groundY = canvas.height - 50;
+            player.y = groundY - player.h;
+        }
+        window.onresize = resize;
+        resize();
+
+        function jump() {
+            if (player.grounded && gameActive && !player.isDucking) {
+                player.dy = player.jumpPower;
+                player.grounded = false;
+            }
+        }
+
+        function toggleDuck(ducking) {
+            if (!player.grounded && ducking) return; 
+            player.isDucking = ducking;
+            player.h = ducking ? 20 : player.baseH;
+            player.y = groundY - player.h;
+        }
+
+        // Keyboard support
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowUp' || e.code === 'Space') jump();
+            if (e.code === 'ArrowDown') toggleDuck(true);
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowDown') toggleDuck(false);
+        });
+
+        // Mobile support
+        document.getElementById('jumpBtn').ontouchstart = (e) => { e.preventDefault(); jump(); };
+        document.getElementById('duckBtn').ontouchstart = (e) => { e.preventDefault(); toggleDuck(true); };
+        document.getElementById('duckBtn').ontouchend = (e) => { e.preventDefault(); toggleDuck(false); };
+
+        function update() {
+            if (!gameActive) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Ground
+            ctx.strokeStyle = "rgba(0, 209, 178, 0.5)";
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(canvas.width, groundY); ctx.stroke();
+
+            // Spawn Obstacles
+            spawnTimer++;
+            if (spawnTimer > Math.max(40, 90 - gameSpeed)) { 
+                const isDrone = Math.random() > 0.5;
+                obstacles.push({
+                    x: canvas.width,
+                    w: 30,
+                    h: isDrone ? 25 : 40, 
+                    y: isDrone ? groundY - 42 : groundY, // Drone hovers just above ducking height
+                    type: isDrone ? 'drone' : 'spike',
+                    passed: false
+                });
+                spawnTimer = 0;
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let o = obstacles[i];
+                o.x -= gameSpeed;
+
+                // Draw Obstacles
+                ctx.fillStyle = o.type === 'drone' ? "#ff0077" : "#00d1b2";
+                if (o.type === 'drone') {
+                    ctx.fillRect(o.x, o.y, o.w, 12); // Drone body
+                    ctx.fillStyle = "rgba(255, 0, 119, 0.3)";
+                    ctx.fillRect(o.x - 5, o.y + 4, o.w + 10, 4); // "Wings"
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(o.x, groundY);
+                    ctx.lineTo(o.x + o.w/2, groundY - o.h);
+                    ctx.lineTo(o.x + o.w, groundY);
+                    ctx.fill();
+                }
+
+                // COLLISION LOGIC
+                let hitY = o.type === 'drone' ? o.y : groundY - o.h;
+                let hitH = o.type === 'drone' ? 12 : o.h;
+
+                if (o.x < player.x + player.w && o.x + o.w > player.x && 
+                    player.y < hitY + hitH && player.y + player.h > hitY) {
+                    gameOver();
+                }
+
+                if (o.x + o.w < player.x && !o.passed) {
+                    o.passed = true;
+                    score += 10;
+                    document.getElementById('score').innerText = score;
+                    gameSpeed += 0.1;
+                }
+                if (o.x < -50) obstacles.splice(i, 1);
+            }
+
+            // Player Physics
+            if (!player.grounded) {
+                player.dy += gravity;
+                player.y += player.dy;
+            }
+            if (player.y > groundY - player.h) {
+                player.y = groundY - player.h;
+                player.dy = 0;
+                player.grounded = true;
+            }
+
+            // Draw Player
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#00d1b2";
+            ctx.fillStyle = player.isDucking ? "#008a76" : "#111";
+            ctx.strokeStyle = "#00d1b2";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(player.x, player.y, player.w, player.h, 5);
+            ctx.fill(); ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            requestAnimationFrame(update);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('rr_best_pro', bestScore);
+                document.getElementById('best-score').innerText = bestScore;
+            }
+            document.getElementById('ui-layer').style.display = 'block';
+            document.getElementById('title').innerText = "SYSTEM CRASH";
+            controls.style.display = 'none';
+        }
+
+        document.getElementById('startBtn').onclick = () => {
+            score = 0; gameSpeed = 6; obstacles = [];
+            document.getElementById('score').innerText = "0";
+            document.getElementById('ui-layer').style.display = 'none';
+            controls.style.display = 'flex';
+            gameActive = true;
+            update();
+        };
+    </script>
+</body>
+</html>
