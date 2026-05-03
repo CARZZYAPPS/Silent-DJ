@@ -60,7 +60,7 @@
             
         let currentTrackIndex = 0;
         const bgMusic = new Audio(playlist[currentTrackIndex]);
-        bgMusic.volume = 0.3;
+        bgMusic.volume = 0.25;
 
         bgMusic.addEventListener('ended', () => {
             currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
