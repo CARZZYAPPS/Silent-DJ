@@ -45,18 +45,18 @@
         const controls = document.getElementById('controls');
 
         // --- 1. PLAYLIST SETUP ---
-        //MUSIC
         const playlist = [
             'https://github.com/CARZZYAPPS/music/raw/refs/heads/main/Bekitcha.mp3',
+            'https://github.com/CARZZYAPPS/music/raw/refs/heads/main/Yerushalayim.mp3',
             'https://github.com/CARZZYAPPS/music/raw/refs/heads/main/Hershy%20Weinberger%20and%20Shmueli%20Ungar%20-%20RTVT.mp3'
-            'https://github.com/CARZZYAPPS/music/raw/refs/heads/main/Yerushalayim.mp3'
         ];
 
         function shufflePlaylist(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
             
         let currentTrackIndex = 0;
         const bgMusic = new Audio(playlist[currentTrackIndex]);
@@ -109,14 +109,13 @@
             if (e.code === 'ArrowUp' || e.code === 'Space') jump();
             if (e.code === 'ArrowDown') toggleDuck(true);
 
-            // Cheat Detector
             inputBuffer += e.key.toUpperCase();
             if (inputBuffer.includes(cheatCode)) {
                 ghostMode = !ghostMode;
                 inputBuffer = "";
                 document.getElementById('cheat-indicator').style.display = ghostMode ? 'block' : 'none';
             }
-            if (inputBuffer.length > 10) inputBuffer = inputBuffer.substring(1);
+            if (inputBuffer.length > 5) inputBuffer = inputBuffer.substring(1);
         });
 
         window.addEventListener('keyup', (e) => {
@@ -169,7 +168,6 @@
                     ctx.fill();
                 }
 
-                // COLLISION WITH CHEAT CHECK
                 if (!ghostMode) {
                     if (o.x < player.x + player.w && o.x + o.w > player.x && 
                         player.y < o.y + o.h && player.y + player.h > o.y) {
@@ -196,7 +194,6 @@
                 player.grounded = true;
             }
 
-            // PLAYER DRAWING WITH GHOST OPACITY
             ctx.globalAlpha = ghostMode ? 0.4 : 1.0;
             ctx.shadowBlur = 10; ctx.shadowColor = "#00d1b2";
             ctx.fillStyle = player.isDucking ? "#008a76" : "#111";
@@ -221,17 +218,20 @@
                 document.getElementById('best-score').innerText = bestScore;
             }
             document.getElementById('ui-layer').style.display = 'block';
-            document.getElementById('title').innerText = "💥💥YOU CRASHED💥💥";
+            document.getElementById('title').innerText = "SYSTEM CRASH";
             controls.style.display = 'none';
         }
 
         document.getElementById('startBtn').onclick = () => {
             score = 0; gameSpeed = 6.5; obstacles = [];
+            shufflePlaylist(playlist);
+            currentTrackIndex = 0;
+            bgMusic.src = playlist[currentTrackIndex];
             document.getElementById('score').innerText = "0";
             document.getElementById('ui-layer').style.display = 'none';
             controls.style.display = 'flex';
             gameActive = true;
-            bgMusic.play().catch(e => console.log("Audio blocked. Click Start to enable."));
+            bgMusic.play().catch(e => {});
             update();
         };
     </script>
